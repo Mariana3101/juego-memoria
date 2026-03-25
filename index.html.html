@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>¿Qué desapareció? 🔍</title>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #FFF8F0;
+    --primary: #FF6B6B;
+    --secondary: #FFD93D;
+    --accent: #6BCB77;
+    --blue: #4ECDC4;
+    --purple: #C77DFF;
+    --card-bg: #fff;
+    --shadow: 0 8px 24px rgba(0,0,0,0.12);
+    --radius: 24px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Baloo 2', cursive;
+    background: var(--bg);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    overflow-x: hidden;
+  }
+
+  /* Fondo decorativo */
+  body::before {
+    content: '';
+    position: fixed;
+    top: -100px; left: -100px;
+    width: 300px; height: 300px;
+    background: radial-gradient(circle, #FFD93D44 0%, transparent 70%);
+    pointer-events: none;
+  }
+  body::after {
+    content: '';
+    position: fixed;
+    bottom: -80px; right: -80px;
+    width: 250px; height: 250px;
+    background: radial-gradient(circle, #6BCB7744 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 16px;
+    animation: bounceIn 0.6s ease;
+  }
+
+  h1 {
+    font-size: clamp(2rem, 6vw, 3.2rem);
+    font-weight: 800;
+    color: var(--primary);
+    text-shadow: 4px 4px 0px #ffb3b3;
+    line-height: 1.1;
+  }
+
+  .subtitle {
+    font-size: clamp(1rem, 3vw, 1.3rem);
+    color: #888;
+    font-weight: 600;
+    margin-top: 4px;
+  }
+
+  /* Puntuación y nivel */
+  .hud {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .hud-box {
+    background: var(--card-bg);
+    border-radius: 16px;
+    padding: 10px 20px;
+    box-shadow: var(--shadow);
+    font-weight: 800;
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: transform 0.2s;
+  }
+
+  .hud-box.score { color: var(--primary); }
+  .hud-box.level { color: var(--blue); }
+  .hud-box.hearts { color: #ff4757; }
+
+  /* Panel de instrucciones */
+  #instruction-panel {
+    background: linear-gradient(135deg, var(--secondary), #FFB347);
+    border-radius: var(--radius);
+    padding: 16px 28px;
+    margin-bottom: 24px;
+    font-size: clamp(1rem, 3vw, 1.4rem);
+    font-weight: 700;
+    color: #5a3e00;
+    box-shadow: var(--shadow);
+    text-align: center;
+    max-width: 600px;
+    width: 100%;
+    transition: all 0.4s ease;
+    min-height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Grid de objetos */
+  #objects-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    gap: 16px;
+    max-width: 600px;
+    width: 100%;
+    margin-bottom: 24px;
+  }
+
+  .obj-card {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 16px 10px 12px;
+    cursor: default;
+    transition: transform 0.2s, box-shadow 0.2s, opacity 0.3s;
+    aspect-ratio: 1;
+    border: 3px solid transparent;
+    user-select: none;
+    animation: popIn 0.4s ease backwards;
+  }
+
+  .obj-card .emoji {
+    font-size: clamp(2.4rem, 8vw, 3.5rem);
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+
+  .obj-card .label {
+    font-size: clamp(0.75rem, 2.5vw, 0.95rem);
+    font-weight: 700;
+    color: #555;
+    text-align: center;
+  }
+
+  .obj-card.hidden-card {
+    background: #f0f0f0;
+    border: 3px dashed #ccc;
+    cursor: pointer;
+  }
+
+  .obj-card.hidden-card .emoji { filter: blur(20px); font-size: 3rem; }
+  .obj-card.hidden-card .label { opacity: 0; }
+  .obj-card.hidden-card:hover {
+    transform: scale(1.06);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.15);
+  }
+
+  /* Estado: seleccionable */
+  .obj-card.selectable {
+    cursor: pointer;
+    border: 3px solid var(--secondary);
+  }
+  .obj-card.selectable:hover {
+    transform: scale(1.07) rotate(-2deg);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.18);
+    border-color: var(--primary);
+  }
+
+  .obj-card.correct-answer {
+    border-color: var(--accent) !important;
+    background: #f0fff4;
+    animation: celebrateCard 0.5s ease;
+  }
+
+  .obj-card.wrong-answer {
+    border-color: var(--primary) !important;
+    background: #fff0f0;
+    animation: shake 0.4s ease;
+  }
+
+  /* Botón principal */
+  #main-btn {
+    background: linear-gradient(135deg, var(--primary), #FF8E53);
+    color: white;
+    border: none;
+    border-radius: 50px;
+    padding: 16px 48px;
+    font-family: 'Baloo 2', cursive;
+    font-size: clamp(1.1rem, 3vw, 1.5rem);
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 6px 0 #c94040, var(--shadow);
+    transition: transform 0.1s, box-shadow 0.1s;
+    letter-spacing: 0.5px;
+  }
+
+  #main-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 0 #c94040, var(--shadow); }
+  #main-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #c94040; }
+  #main-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+  /* Opciones de respuesta */
+  #answer-options {
+    display: none;
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    gap: 16px;
+    max-width: 600px;
+    width: 100%;
+    margin-bottom: 24px;
+  }
+
+  #answer-options.visible { display: grid; }
+
+  /* Feedback */
+  #feedback {
+    font-size: clamp(1.2rem, 4vw, 1.8rem);
+    font-weight: 800;
+    text-align: center;
+    min-height: 48px;
+    margin-bottom: 16px;
+    transition: all 0.3s;
+  }
+
+  #feedback.win { color: var(--accent); animation: bounceIn 0.4s ease; }
+  #feedback.lose { color: var(--primary); animation: shake 0.4s ease; }
+
+  /* Pantalla de inicio */
+  #start-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    max-width: 500px;
+    width: 100%;
+    text-align: center;
+  }
+
+  .start-card {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    padding: 28px;
+    box-shadow: var(--shadow);
+    width: 100%;
+  }
+
+  .start-card h2 {
+    font-size: 1.5rem;
+    color: var(--blue);
+    margin-bottom: 12px;
+  }
+
+  .steps {
+    list-style: none;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .steps li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 1.05rem;
+    color: #444;
+    font-weight: 600;
+  }
+
+  .step-num {
+    background: var(--secondary);
+    color: #5a3e00;
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800;
+    flex-shrink: 0;
+  }
+
+  /* Game over */
+  #game-over {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    max-width: 400px;
+    width: 100%;
+    text-align: center;
+    animation: bounceIn 0.5s ease;
+  }
+
+  #game-over .big-emoji { font-size: 5rem; }
+  #game-over h2 { font-size: 2rem; color: var(--primary); font-weight: 800; }
+  #game-over .final-score {
+    font-size: 1.4rem;
+    color: #555;
+    font-weight: 700;
+  }
+
+  /* Main game container */
+  #game-area {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+  }
+
+  /* Animaciones */
+  @keyframes bounceIn {
+    0% { transform: scale(0.7); opacity: 0; }
+    70% { transform: scale(1.05); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  @keyframes popIn {
+    0% { transform: scale(0.5) rotate(-10deg); opacity: 0; }
+    80% { transform: scale(1.05); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-8px); }
+    40% { transform: translateX(8px); }
+    60% { transform: translateX(-6px); }
+    80% { transform: translateX(6px); }
+  }
+
+  @keyframes celebrateCard {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.15) rotate(3deg); }
+    100% { transform: scale(1); }
+  }
+
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.08); }
+  }
+
+  .confetti {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 999;
+  }
+
+  .confetti-piece {
+    position: absolute;
+    width: 12px; height: 12px;
+    border-radius: 2px;
+    animation: confettiFall linear forwards;
+  }
+
+  @keyframes confettiFall {
+    0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+  }
+
+  /* Timer bar */
+  #timer-container {
+    width: 100%;
+    max-width: 600px;
+    height: 12px;
+    background: #e0e0e0;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    overflow: hidden;
+    display: none;
+  }
+
+  #timer-bar {
+    height: 100%;
+    border-radius: 10px;
+    background: linear-gradient(90deg, var(--accent), var(--secondary));
+    transition: width 1s linear, background 0.5s;
+    width: 100%;
+  }
+
+  #timer-bar.urgent { background: linear-gradient(90deg, var(--primary), #ff8e53); }
+</style>
+</head>
+<body>
+
+<!-- Pantalla de inicio -->
+<header>
+  <h1>🔍 ¿Qué desapareció?</h1>
+  <p class="subtitle">¡Entrená tu memoria!</p>
+</header>
+
+<div id="start-screen">
+  <div class="start-card">
+    <h2>🎮 ¿Cómo se juega?</h2>
+    <ul class="steps">
+      <li><span class="step-num">1</span> Mirá bien todos los objetos</li>
+      <li><span class="step-num">2</span> ¡Uno va a desaparecer!</li>
+      <li><span class="step-num">3</span> Recordá cuál faltaba</li>
+      <li><span class="step-num">4</span> Tocá la respuesta correcta 🎉</li>
+    </ul>
+  </div>
+  <button id="main-btn" onclick="startGame()">¡Empezar a jugar! 🚀</button>
+</div>
+
+<!-- Área de juego -->
+<div id="game-area">
+  <div class="hud">
+    <div class="hud-box score">⭐ Puntos: <span id="score-val">0</span></div>
+    <div class="hud-box level">🎯 Nivel <span id="level-val">1</span></div>
+    <div class="hud-box hearts"><span id="hearts-val">❤️❤️❤️</span></div>
+    <button id="mute-btn" onclick="toggleMute()" title="Silenciar/Activar sonido" style="background:white;border:2px solid #eee;border-radius:50%;width:44px;height:44px;font-size:1.3rem;cursor:pointer;box-shadow:var(--shadow);transition:transform 0.1s;" onmousedown="this.style.transform='scale(0.9)'" onmouseup="this.style.transform='scale(1)'">🔊</button>
+  </div>
+
+  <div id="instruction-panel">¡Mirá bien los objetos!</div>
+
+  <div id="timer-container"><div id="timer-bar"></div></div>
+
+  <div id="objects-grid"></div>
+
+  <div id="feedback"></div>
+
+  <div id="answer-options"></div>
+
+  <button id="play-btn" onclick="nextRound()" style="display:none; background: linear-gradient(135deg,#4ECDC4,#44a8a0); color:white; border:none; border-radius:50px; padding:14px 40px; font-family:'Baloo 2',cursive; font-size:1.3rem; font-weight:800; cursor:pointer; box-shadow:0 6px 0 #2e8a82;">
+    ¡Siguiente! ➡️
+  </button>
+</div>
+
+<!-- Game Over -->
+<div id="game-over">
+  <div class="big-emoji" id="go-emoji">🌟</div>
+  <h2 id="go-title">¡Muy bien!</h2>
+  <p class="final-score">Conseguiste <span id="final-score">0</span> puntos</p>
+  <button id="main-btn" onclick="resetGame()" style="background:linear-gradient(135deg,#6BCB77,#4a9e54); color:white; border:none; border-radius:50px; padding:16px 48px; font-family:'Baloo 2',cursive; font-size:1.4rem; font-weight:800; cursor:pointer; box-shadow:0 6px 0 #376e3d;">
+    ¡Jugar de nuevo! 🔄
+  </button>
+</div>
+
+<script>
+// ============ SISTEMA DE SONIDOS (Web Audio API) ============
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let audioCtx = null;
+
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new AudioCtx();
+  return audioCtx;
+}
+
+function playTone(frequency, duration, type = 'sine', volume = 0.3, delay = 0) {
+  try {
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = type;
+    osc.frequency.setValueAtTime(frequency, ctx.currentTime + delay);
+    gain.gain.setValueAtTime(volume, ctx.currentTime + delay);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + duration);
+    osc.start(ctx.currentTime + delay);
+    osc.stop(ctx.currentTime + delay + duration);
+  } catch(e) {}
+}
+
+function soundCorrect() {
+  // Melodía alegre: Do-Mi-Sol-Do
+  playTone(523, 0.15, 'sine', 0.35, 0);
+  playTone(659, 0.15, 'sine', 0.35, 0.12);
+  playTone(784, 0.15, 'sine', 0.35, 0.24);
+  playTone(1047, 0.3,  'sine', 0.35, 0.36);
+}
+
+function soundWrong() {
+  // Sonido de error: dos notas bajas
+  playTone(220, 0.2, 'sawtooth', 0.25, 0);
+  playTone(180, 0.3, 'sawtooth', 0.2, 0.22);
+}
+
+function soundLevelUp() {
+  // Fanfarria de subida de nivel
+  playTone(523, 0.1, 'sine', 0.3, 0);
+  playTone(659, 0.1, 'sine', 0.3, 0.1);
+  playTone(784, 0.1, 'sine', 0.3, 0.2);
+  playTone(1047, 0.1, 'sine', 0.3, 0.3);
+  playTone(1319, 0.4, 'sine', 0.35, 0.4);
+}
+
+function soundHide() {
+  // "Puf" cuando desaparece el objeto
+  playTone(400, 0.08, 'sine', 0.2, 0);
+  playTone(200, 0.15, 'sine', 0.15, 0.06);
+}
+
+function soundClick() {
+  // Click suave al tocar un botón
+  playTone(700, 0.06, 'sine', 0.15, 0);
+}
+
+function soundStart() {
+  // Intro al comenzar el juego
+  [261, 329, 392, 523].forEach((f, i) => playTone(f, 0.18, 'sine', 0.28, i * 0.13));
+}
+
+function soundTimeout() {
+  // Tiempo agotado
+  playTone(300, 0.4, 'triangle', 0.3, 0);
+  playTone(250, 0.4, 'triangle', 0.25, 0.35);
+}
+
+function soundGameOver() {
+  // Fin del juego
+  playTone(523, 0.15, 'sine', 0.3, 0);
+  playTone(440, 0.15, 'sine', 0.3, 0.15);
+  playTone(349, 0.4, 'sine', 0.35, 0.3);
+}
+
+// Botón de mute
+let muted = false;
+function toggleMute() {
+  muted = !muted;
+  document.getElementById('mute-btn').textContent = muted ? '🔇' : '🔊';
+}
+
+// Wrapper para respetar mute
+const play = {
+  correct: () => !muted && soundCorrect(),
+  wrong:   () => !muted && soundWrong(),
+  levelUp: () => !muted && soundLevelUp(),
+  hide:    () => !muted && soundHide(),
+  click:   () => !muted && soundClick(),
+  start:   () => !muted && soundStart(),
+  timeout: () => !muted && soundTimeout(),
+  gameOver:() => !muted && soundGameOver(),
+};
+// ============================================================
+
+const ALL_OBJECTS = [
+  { emoji: '🐶', label: 'perro' },
+  { emoji: '🐱', label: 'gato' },
+  { emoji: '🐸', label: 'rana' },
+  { emoji: '🦁', label: 'león' },
+  { emoji: '🐘', label: 'elefante' },
+  { emoji: '🦊', label: 'zorro' },
+  { emoji: '🐧', label: 'pingüino' },
+  { emoji: '🦋', label: 'mariposa' },
+  { emoji: '🍎', label: 'manzana' },
+  { emoji: '🍌', label: 'banana' },
+  { emoji: '🍓', label: 'frutilla' },
+  { emoji: '🍕', label: 'pizza' },
+  { emoji: '🎈', label: 'globo' },
+  { emoji: '⭐', label: 'estrella' },
+  { emoji: '🌈', label: 'arcoíris' },
+  { emoji: '🚀', label: 'cohete' },
+  { emoji: '🎸', label: 'guitarra' },
+  { emoji: '🏆', label: 'trofeo' },
+  { emoji: '🌸', label: 'flor' },
+  { emoji: '🍦', label: 'helado' },
+  { emoji: '🚂', label: 'tren' },
+  { emoji: '⚽', label: 'pelota' },
+  { emoji: '🎩', label: 'sombrero' },
+  { emoji: '🦄', label: 'unicornio' },
+];
+
+// Configuración por nivel
+const LEVELS = [
+  { gridSize: 3, watchTime: 4000 }, // nivel 1: 3 objetos, 4 seg
+  { gridSize: 4, watchTime: 4000 }, // nivel 2: 4 objetos
+  { gridSize: 4, watchTime: 3000 }, // nivel 3: 4 objetos, menos tiempo
+  { gridSize: 5, watchTime: 4000 }, // nivel 4: 5 objetos
+  { gridSize: 6, watchTime: 4000 }, // nivel 5: 6 objetos
+];
+
+let score = 0;
+let lives = 3;
+let level = 1;
+let roundObjects = [];
+let missingObject = null;
+let timerInterval = null;
+let roundsWon = 0;
+const ROUNDS_PER_LEVEL = 3;
+
+function startGame() {
+  play.start();
+  document.getElementById('start-screen').style.display = 'none';
+  document.getElementById('game-area').style.display = 'flex';
+  document.getElementById('game-area').style.flexDirection = 'column';
+  document.getElementById('game-area').style.alignItems = 'center';
+  document.getElementById('game-area').style.width = '100%';
+  nextRound();
+}
+
+function shuffle(arr) {
+  return [...arr].sort(() => Math.random() - 0.5);
+}
+
+function nextRound() {
+  document.getElementById('play-btn').style.display = 'none';
+  document.getElementById('answer-options').classList.remove('visible');
+  document.getElementById('answer-options').innerHTML = '';
+  document.getElementById('feedback').textContent = '';
+  document.getElementById('feedback').className = '';
+
+  const cfg = LEVELS[Math.min(level - 1, LEVELS.length - 1)];
+  const shuffled = shuffle(ALL_OBJECTS);
+  roundObjects = shuffled.slice(0, cfg.gridSize);
+
+  updateHUD();
+  showObjects(roundObjects);
+  setInstruction('👀 ¡Mirá bien todos los objetos!');
+
+  // Después del tiempo de observación, ocultar uno
+  setTimeout(() => {
+    hideRandomObject(cfg);
+  }, cfg.watchTime);
+}
+
+function showObjects(objects) {
+  const grid = document.getElementById('objects-grid');
+  grid.innerHTML = '';
+  objects.forEach((obj, i) => {
+    const card = document.createElement('div');
+    card.className = 'obj-card';
+    card.style.animationDelay = `${i * 0.08}s`;
+    card.innerHTML = `<div class="emoji">${obj.emoji}</div><div class="label">${obj.label}</div>`;
+    card.id = `obj-${i}`;
+    grid.appendChild(card);
+  });
+}
+
+function hideRandomObject(cfg) {
+  const idx = Math.floor(Math.random() * roundObjects.length);
+  missingObject = roundObjects[idx];
+
+  // Ocultar esa carta con animación
+  const card = document.getElementById(`obj-${idx}`);
+  if (card) {
+    card.classList.add('hidden-card');
+    card.querySelector('.emoji').textContent = '❓';
+    card.querySelector('.label').textContent = '';
+    card.querySelector('.label').style.opacity = '1';
+  }
+
+  setInstruction('🤔 ¿Cuál objeto desapareció?');
+  play.hide();
+
+  // Mostrar opciones
+  showAnswerOptions();
+
+  // Timer visual
+  startTimer(cfg.watchTime + 8000);
+}
+
+function showAnswerOptions() {
+  const panel = document.getElementById('answer-options');
+  panel.innerHTML = '';
+
+  // Distractores: otros objetos no en la ronda actual
+  const distractors = shuffle(
+    ALL_OBJECTS.filter(o => !roundObjects.some(r => r.label === o.label))
+  ).slice(0, 2);
+
+  const options = shuffle([missingObject, ...distractors]);
+
+  options.forEach((obj, i) => {
+    const card = document.createElement('div');
+    card.className = 'obj-card selectable';
+    card.style.animationDelay = `${i * 0.1}s`;
+    card.innerHTML = `<div class="emoji">${obj.emoji}</div><div class="label">${obj.label}</div>`;
+    card.onclick = () => { play.click(); checkAnswer(obj, card); };
+    panel.appendChild(card);
+  });
+
+  panel.classList.add('visible');
+}
+
+function checkAnswer(selected, cardEl) {
+  clearInterval(timerInterval);
+  document.getElementById('timer-container').style.display = 'none';
+
+  // Deshabilitar todas las opciones
+  document.querySelectorAll('#answer-options .obj-card').forEach(c => {
+    c.onclick = null;
+    c.classList.remove('selectable');
+  });
+
+  if (selected.label === missingObject.label) {
+    cardEl.classList.add('correct-answer');
+    score += 10 * level;
+    roundsWon++;
+    setFeedback('¡Muy bien! 🎉', 'win');
+    showConfetti();
+    play.correct();
+
+    // Revelar el objeto oculto
+    revealMissing();
+
+    if (roundsWon >= ROUNDS_PER_LEVEL && level < LEVELS.length) {
+      level++;
+      roundsWon = 0;
+      setTimeout(() => {
+        play.levelUp();
+        setInstruction(`🚀 ¡Subiste al nivel ${level}! ¡Sos increíble!`);
+        setTimeout(nextRound, 2000);
+      }, 1200);
+    } else {
+      setTimeout(() => { document.getElementById('play-btn').style.display = 'block'; }, 900);
+    }
+  } else {
+    cardEl.classList.add('wrong-answer');
+    lives--;
+    setFeedback(`¡Casi! Era ${missingObject.emoji} ${missingObject.label}`, 'lose');
+    play.wrong();
+    revealMissing();
+    updateHUD();
+
+    if (lives <= 0) {
+      setTimeout(showGameOver, 1500);
+    } else {
+      setTimeout(() => { document.getElementById('play-btn').style.display = 'block'; }, 1000);
+    }
+  }
+
+  updateHUD();
+}
+
+function revealMissing() {
+  // Encontrar la carta oculta y revelarla
+  document.querySelectorAll('#objects-grid .obj-card').forEach(c => {
+    if (c.classList.contains('hidden-card')) {
+      c.classList.remove('hidden-card');
+      c.querySelector('.emoji').textContent = missingObject.emoji;
+      c.querySelector('.label').textContent = missingObject.label;
+      c.style.border = '3px solid #6BCB77';
+      c.style.background = '#f0fff4';
+    }
+  });
+}
+
+function startTimer(ms) {
+  const container = document.getElementById('timer-container');
+  const bar = document.getElementById('timer-bar');
+  container.style.display = 'block';
+  bar.style.width = '100%';
+  bar.classList.remove('urgent');
+
+  const steps = ms / 1000;
+  let elapsed = 0;
+  timerInterval = setInterval(() => {
+    elapsed++;
+    const pct = Math.max(0, 100 - (elapsed / steps) * 100);
+    bar.style.width = pct + '%';
+    if (pct < 30) bar.classList.add('urgent');
+    if (elapsed >= steps) {
+      clearInterval(timerInterval);
+      // Tiempo agotado = incorrecto
+      if (missingObject) {
+        lives--;
+        setFeedback(`¡Se acabó el tiempo! Era ${missingObject.emoji}`, 'lose');
+        play.timeout();
+        revealMissing();
+        updateHUD();
+        document.querySelectorAll('#answer-options .obj-card').forEach(c => { c.onclick = null; c.classList.remove('selectable'); });
+        container.style.display = 'none';
+        if (lives <= 0) { setTimeout(showGameOver, 1500); }
+        else { setTimeout(() => { document.getElementById('play-btn').style.display = 'block'; }, 1000); }
+      }
+    }
+  }, 1000);
+}
+
+function setInstruction(text) {
+  document.getElementById('instruction-panel').textContent = text;
+}
+
+function setFeedback(text, cls) {
+  const el = document.getElementById('feedback');
+  el.textContent = text;
+  el.className = cls;
+}
+
+function updateHUD() {
+  document.getElementById('score-val').textContent = score;
+  document.getElementById('level-val').textContent = level;
+  const hearts = ['❤️', '❤️', '❤️'].map((h, i) => i < lives ? h : '🖤').join('');
+  document.getElementById('hearts-val').textContent = hearts;
+}
+
+function showGameOver() {
+  play.gameOver();
+  document.getElementById('game-area').style.display = 'none';
+  const go = document.getElementById('game-over');
+  go.style.display = 'flex';
+  document.getElementById('final-score').textContent = score;
+
+  if (score >= 100) {
+    document.getElementById('go-emoji').textContent = '🏆';
+    document.getElementById('go-title').textContent = '¡Campeón/a de la memoria!';
+  } else if (score >= 50) {
+    document.getElementById('go-emoji').textContent = '🌟';
+    document.getElementById('go-title').textContent = '¡Genial, seguí practicando!';
+  } else {
+    document.getElementById('go-emoji').textContent = '😊';
+    document.getElementById('go-title').textContent = '¡Muy bien, lo vas a lograr!';
+  }
+  showConfetti();
+}
+
+function resetGame() {
+  score = 0; lives = 3; level = 1; roundsWon = 0; missingObject = null;
+  document.getElementById('game-over').style.display = 'none';
+  document.getElementById('game-area').style.display = 'flex';
+  nextRound();
+}
+
+function showConfetti() {
+  const colors = ['#FF6B6B','#FFD93D','#6BCB77','#4ECDC4','#C77DFF','#FF8E53'];
+  const container = document.createElement('div');
+  container.className = 'confetti';
+  document.body.appendChild(container);
+
+  for (let i = 0; i < 40; i++) {
+    const piece = document.createElement('div');
+    piece.className = 'confetti-piece';
+    piece.style.left = Math.random() * 100 + 'vw';
+    piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+    piece.style.animationDuration = (1.5 + Math.random() * 1.5) + 's';
+    piece.style.animationDelay = Math.random() * 0.8 + 's';
+    piece.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+    container.appendChild(piece);
+  }
+
+  setTimeout(() => container.remove(), 3500);
+}
+</script>
+</body>
+</html>
